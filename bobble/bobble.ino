@@ -34,6 +34,7 @@ byte mac[] = {
   0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
 };
 IPAddress ip(192, 168, 1, 210);
+IPAddress myDns(192, 168, 1, 1);
 
 #define MAGNET_PIN (4)
 
@@ -46,6 +47,8 @@ unsigned long last_millis = millis();
 // (port 80 is default for HTTP):
 EthernetServer server(80);
 
+IPAddress server(192,168,1,200);
+
 // Or use this line for a breakout or shield with an I2C connection:
 Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
 
@@ -56,6 +59,7 @@ Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
 #endif
 
 String string = String("");
+bool magnet_state = false;
 
 void setup(void) {
   #ifndef ESP8266
@@ -100,6 +104,13 @@ void loop(void) {
   // Wait for an NTAG203 card.  When one is found 'uid' will be populated with
   // the UID, and uidLength will indicate the size of the UUID (normally 7)
   success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);
+
+  bool new_magnet_state = digitalRead(MAGNET_PIN)==LOW;
+  if(magnet_state != new_magnet_state) {
+    magnet_state = new_magnet_state;
+    http_request();
+  }
+  magnet_state = new_magnet_state;
   
   if (success) {
     // Display some basic information about the card
@@ -167,4 +178,45 @@ void loop(void) {
     Serial.println("client disconnected");
   }
 }
+
+
+// this method makes a HTTP connection to the server:
+void httpRequest() {
+  // close any connection before send a new request.
+  // This will free the socket on the WiFi shield
+  client.stop();
+
+  // if there's a successful connection:
+  if (client.connect(server, 80)) {
+    Serial.println("connected...");
+    // send the HTTP GET request:
+    client.println("POST /api/peripheral/update HTTP/1.1");
+    client.println("Host: etr.looklisten.com");
+    client.println("Content-Type: application/json");
+    client.println("User-Agent: etr-device");
+    //client.println("Connection: close");
+    
+    client.println();
+    client.println("{");
+    client.println("\"identifier\":\"nfc_1\",");
+    if(magent_state) {
+      client.println("\"State\":\"0\"");
+    } else {
+      client.println("\"State\":\"1\",");
+      client.print("\"Tag\":\"0x");
+      for(int i = 0; i < last_uidLength; i++) {
+        client.print(last_uid[i], HEX);
+      }
+      client.println("\"");
+    }
+    client.println("}");
+    client.println();
+    
+    delay(10);
+    client.stop();
+  } else {
+    Serial.println("could not connect to server");
+  }
+}
+
 
