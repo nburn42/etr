@@ -32,7 +32,7 @@
 byte mac[] = {
   0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xF1
 };
-IPAddress ip(192, 168, 1, 180);
+IPAddress ip(192, 168, 1, 220);
 
 // Initialize the Ethernet server library
 // with the IP address and port you want to use
@@ -40,9 +40,13 @@ IPAddress ip(192, 168, 1, 180);
 EthernetServer server(80);
 
 
+bool is_open = false;
+String string = String("");
+
 void setup(void) {
   #ifndef ESP8266
-    while (!Serial); // for Leonardo/Micro/Zero
+    long start_time = millis();
+    while (!Serial && millis() - start_time < 2000); // for Leonardo/Micro/Zero
   #endif
   Serial.begin(115200);
   Serial.println("Started");
@@ -56,40 +60,56 @@ void setup(void) {
   pinMode(CONTROL_PIN1, OUTPUT);
   pinMode(CONTROL_PIN2, OUTPUT);
 
+  close_drawer();
+
 }
 
 void loop(void) {
-
-  digitalWrite(CONTROL_PIN1, HIGH);
-  digitalWrite(CONTROL_PIN2, LOW);
+  if(is_open) {
+    open_drawer();
+  } else {
+    close_drawer();
+  }
   
-  delay(2000);
-
-  digitalWrite(CONTROL_PIN1, LOW);
-  digitalWrite(CONTROL_PIN2, HIGH);
-
-
-  delay(2000);
+  delay(2);
   
   // listen for incoming clients
   EthernetClient client = server.available();
   if (client) {
     Serial.println("new client");
-    // an http request ends with a blank line
-    boolean currentLineIsBlank = true;
     while (client.connected()) {
       if (client.available()) {
-        // send a standard http response header
+        while(client.available()) {
+          delay(3);  
+          string = client.readString();
+          Serial.println(string);
+  
+          if(string.indexOf("192.168.1.220/open") != -1) {
+            is_open = true;
+            //open_drawer();
+          } else if(string.indexOf("192.168.1.220/close") != -1) {
+            is_open = false;
+            //close_drawer();
+          }
+        }
 
-        //client.println("POST /api/peripheral/update HTTP/1.1");
-        //client.println("Host: etr.looklisten.com");
+        Serial.print("LOOP");
+        Serial.println(is_open);
+
+        // send a standard http response header
         client.println("HTTP/1.1 200 OK");
         client.println("Content-Type: application/json");
         client.println("Cache-Control: no-cache");
         
         client.println();
         client.println("{");
-        client.println("\"identifier\":\"led\",");
+        client.println("\"identifier\":\"drawer\",");
+
+        if(is_open) {
+          client.println("\"status\":\"open\"");
+        } else {
+          client.println("\"status\":\"closed\"");
+        }
         client.println("}");
         break;
       }
@@ -101,4 +121,21 @@ void loop(void) {
     Serial.println("client disconnected");
   }
 }
+
+void open_drawer() {
+  digitalWrite(CONTROL_PIN1, LOW);
+  digitalWrite(CONTROL_PIN2, HIGH);
+//  delay(1);
+//  digitalWrite(CONTROL_PIN1, LOW);
+//  digitalWrite(CONTROL_PIN2, LOW);
+}
+
+void close_drawer() {
+  digitalWrite(CONTROL_PIN1, HIGH);
+  digitalWrite(CONTROL_PIN2, LOW);
+//  delay(2);
+//  digitalWrite(CONTROL_PIN1, LOW);
+//  digitalWrite(CONTROL_PIN2, LOW);
+}
+
 

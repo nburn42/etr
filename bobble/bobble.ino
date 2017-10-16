@@ -33,12 +33,12 @@
 byte mac[] = {
   0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
 };
-IPAddress ip(192, 168, 1, 177);
+IPAddress ip(192, 168, 1, 210);
 
 #define MAGNET_PIN (4)
 
 uint8_t last_uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
-uint8_t last_uidLength;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
+uint8_t last_uidLength = 1;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
 unsigned long last_millis = millis();
 
 // Initialize the Ethernet server library
@@ -55,9 +55,12 @@ Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
    #define Serial SerialUSB
 #endif
 
+String string = String("");
+
 void setup(void) {
   #ifndef ESP8266
-    while (!Serial); // for Leonardo/Micro/Zero
+    long start_time = millis();
+    while (!Serial && millis() - start_time < 2000); // for Leonardo/Micro/Zero
   #endif
   Serial.begin(115200);
   Serial.println("Started");
@@ -76,6 +79,7 @@ void setup(void) {
   
   // configure board to read RFID tags
   nfc.SAMConfig();
+  nfc.setPassiveActivationRetries(5);
 
   // start the Ethernet connection and the server:
   Ethernet.begin(mac, ip);
@@ -122,47 +126,38 @@ void loop(void) {
   EthernetClient client = server.available();
   if (client) {
     Serial.println("new client");
-    // an http request ends with a blank line
-    boolean currentLineIsBlank = true;
     while (client.connected()) {
       if (client.available()) {
-        char c = client.read();
-        Serial.write(c);
-        // if you've gotten to the end of the line (received a newline
-        // character) and the line is blank, the http request has ended,
-        // so you can send a reply
-        if (c == '\n' && currentLineIsBlank) {
-          // send a standard http response header
+        while(client.available()) {
+          delay(3);  
+          string = client.readString();
+          Serial.println(string);
+        }
+        
+        // send a standard http response header
 
-          //client.println("POST /api/peripheral/update HTTP/1.1");
-          //client.println("Host: etr.looklisten.com");
-          client.println("HTTP/1.1 200 OK");
-          client.println("Content-Type: application/json");
-          client.println("Cache-Control: no-cache");
-          
-          client.println();
-          client.println("{");
-          client.println("\"identifier\":\"nfc_1\",");
-          if(digitalRead(MAGNET_PIN) == LOW) {
-            client.println("\"State\":\"0\"");
-          } else {
-            client.println("\"State\":\"1\",");
-            client.print("\"Tag\":\"");
-            for(int i = 0; i < last_uidLength; i++) {
-              client.print(last_uid[i]);
-            }
-            client.println("\"");
+        //client.println("POST /api/peripheral/update HTTP/1.1");
+        //client.println("Host: etr.looklisten.com");
+        client.println("HTTP/1.1 200 OK");
+        client.println("Content-Type: application/json");
+        client.println("Refresh: 1");
+        client.println("Cache-Control: no-cache");
+        
+        client.println();
+        client.println("{");
+        client.println("\"identifier\":\"nfc_1\",");
+        if(digitalRead(MAGNET_PIN) == HIGH) {
+          client.println("\"State\":\"0\"");
+        } else {
+          client.println("\"State\":\"1\",");
+          client.print("\"Tag\":\"0x");
+          for(int i = 0; i < last_uidLength; i++) {
+            client.print(last_uid[i], HEX);
           }
-          client.println("}");
-          break;
+          client.println("\"");
         }
-        if (c == '\n') {
-          // you're starting a new line
-          currentLineIsBlank = true;
-        } else if (c != '\r') {
-          // you've gotten a character on the current line
-          currentLineIsBlank = false;
-        }
+        client.println("}");
+        break;
       }
     }
     // give the web browser time to receive the data
