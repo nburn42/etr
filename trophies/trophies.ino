@@ -26,9 +26,9 @@
 // Enter a MAC address and IP address for your controller below.
 // The IP address will be dependent on your local network:
 byte mac[] = {
-  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0x2F
+  0xDE, 0xAD, 0xBE, 0xBF, 0xFE, 0x2F
 };
-IPAddress ip(192, 168, 1, 215);
+IPAddress ip(192, 168, 0, 215);
 
 #define MAGNET_PIN1 (7)
 #define MAGNET_PIN2 (8)
@@ -38,7 +38,11 @@ IPAddress ip(192, 168, 1, 215);
 // (port 80 is default for HTTP):
 EthernetServer server(80);
 
-IPAddress etr_server(192,168,1,200);
+IPAddress etr_server(192,168,0,200);
+
+
+bool magnet_state1 = false;
+bool magnet_state2 = false;
 
 void setup(void) {
   #ifndef ESP8266
@@ -56,24 +60,24 @@ void setup(void) {
   pinMode(MAGNET_PIN1, INPUT);
   pinMode(MAGNET_PIN2, INPUT);
   
-  Serial.println("Waiting for an ISO14443A Card ...");
+
+  httpRequest(true);
+  httpRequest(false);
 }
 
-bool magnet_state1 = false;
-bool magnet_state2 = false;
 
 void loop(void) {
   
   bool new_magnet_state1 = digitalRead(MAGNET_PIN1)==LOW;
   if(magnet_state1 != new_magnet_state1) {
     magnet_state1 = new_magnet_state1;
-    httpRequest();
+    httpRequest(true);
   }
 
   bool new_magnet_state2 = digitalRead(MAGNET_PIN2)==LOW;
   if(magnet_state2 != new_magnet_state2) {
     magnet_state2 = new_magnet_state2;
-    httpRequest();
+    httpRequest(false);
   }
 
   magnet_state1 = new_magnet_state1;
@@ -98,16 +102,15 @@ void loop(void) {
         
         client.println();
         client.println("{");
-        client.println("\"identifier\":\"magnet_1\",");
         if(magnet_state1) {
-          client.println("\"State_1\":\"1\",");
+          client.println("\"magnet_1\":\"1\",");
         } else {
-          client.println("\"State_1\":\"0\",");
+          client.println("\"magnet_1\":\"0\",");
         }
         if(magnet_state2) {
-          client.println("\"State_2\":\"1\"");
+          client.println("\"magnet_2\":\"1\"");
         } else {
-          client.println("\"State_2\":\"0\"");
+          client.println("\"magnet_2\":\"0\"");
         }
         client.println("}");
         break;
@@ -122,7 +125,7 @@ void loop(void) {
 }
 
 // this method makes a HTTP connection to the server:
-void httpRequest() {
+void httpRequest(bool use_magnet1) {
   EthernetClient client;
   // close any connection before send a new request.
   // This will free the socket on the WiFi shield
@@ -133,29 +136,53 @@ void httpRequest() {
     Serial.println("connected...");
     // send the HTTP GET request:
     client.println("POST /api/peripheral/update HTTP/1.1");
-    client.println("Host: etr.looklisten.com");
+    client.println("Host: 192.168.0.200");
     client.println("Content-Type: application/json");
-    client.println("User-Agent: etr-device");
-    //client.println("Connection: close");
-    
+    client.println("cache-control: no-cache");
+    client.println("Content-Length: 172");
+   
     client.println();
+    Serial.println();
     client.println("{");
-    client.println("\"identifier\":\"magnet_1\",");
-    if(magnet_state1) {
-      client.println("\"State_1\":\"1\",");
-    } else {
-      client.println("\"State_1\":\"0\",");
-    }
-    if(magnet_state2) {
-      client.println("\"State_2\":\"1\"");
-    } else {
-      client.println("\"State_2\":\"0\"");
-    }
-    client.println("}");
-    client.println("}");
-    client.println();
+    Serial.println("{");
     
-    delay(10);
+    if(use_magnet1) {
+      client.println("\t\"identifier\":\"magnet_1\",");
+      Serial.println("\t\"identifier\":\"magnet_1\",");
+      if(magnet_state1) {
+        client.println("\t\"state\":\"1\"");
+        Serial.println("\t\"state\":\"1\"");
+      } else {
+        client.println("\t\"state\":\"0\"");
+        Serial.println("\t\"state\":\"0\"");
+      }
+    } else {
+      client.println("\t\"identifier\":\"magnet_2\",");
+      Serial.println("\t\"identifier\":\"magnet_2\",");
+      if(magnet_state2) {
+        client.println("\t\"state\":\"1\"");
+        Serial.println("\t\"state\":\"1\"");
+      } else {
+        client.println("\t\"state\":\"0\"");
+        Serial.println("\t\"state\":\"0\"");
+      }
+    }
+    client.println("}");
+    Serial.println("}");
+    client.println();
+    Serial.println();
+    
+    delay(500);
+
+    while(client.available()) {
+      delay(3);  
+      String string = client.readString();
+      Serial.println(string);
+      
+      
+    }
+    Serial.println("end");
+    
     client.stop();
   } else {
     Serial.println("could not connect to server");

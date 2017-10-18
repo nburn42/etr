@@ -65,8 +65,8 @@ IPAddress etr_server(192,168,1,200);
 
 // Or use this line for a breakout or shield with an I2C connection:
 Adafruit_PN532 nfc1(PN532_IRQ1, PN532_RESET1);
-Adafruit_PN532 nfc2(PN532_IRQ2, PN532_RESET2);
-Adafruit_PN532 nfc3(PN532_IRQ3, PN532_RESET3);
+//Adafruit_PN532 nfc2(PN532_IRQ2, PN532_RESET2);
+//Adafruit_PN532 nfc3(PN532_IRQ3, PN532_RESET3);
 
 #if defined(ARDUINO_ARCH_SAMD)
 // for Zero, output on USB Serial console, remove line below if using programming port to program the Zero!
@@ -89,38 +89,38 @@ void setup(void) {
   Serial.println("Started");
 
   nfc1.begin();
-  nfc2.begin();
-  nfc3.begin();
+//  nfc2.begin();
+//  nfc3.begin();
 
   uint32_t versiondata = nfc1.getFirmwareVersion();
-  if (! versiondata) {
-    Serial.print("Didn't find PN53x board1");
-    while (1); // halt
-  }
-  versiondata = nfc2.getFirmwareVersion();
-  if (! versiondata) {
-    Serial.print("Didn't find PN53x board2");
-    while (1); // halt
-  }
-  versiondata = nfc3.getFirmwareVersion();
-  if (! versiondata) {
-    Serial.print("Didn't find PN53x board3");
-    while (1); // halt
-  }
+//  if (! versiondata) {
+//    Serial.print("Didn't find PN53x board1");
+//    while (1); // halt
+//  }
+//  versiondata = nfc2.getFirmwareVersion();
+//  if (! versiondata) {
+//    Serial.print("Didn't find PN53x board2");
+//    while (1); // halt
+//  }
+//  versiondata = nfc3.getFirmwareVersion();
+//  if (! versiondata) {
+//    Serial.print("Didn't find PN53x board3");
+//    while (1); // halt
+//  }
   // Got ok data, print it out!
   Serial.print("Found chip PN5"); Serial.println((versiondata>>24) & 0xFF, HEX); 
   Serial.print("Firmware ver. "); Serial.print((versiondata>>16) & 0xFF, DEC); 
   Serial.print('.'); Serial.println((versiondata>>8) & 0xFF, DEC);
   
   // configure board to read RFID tags
-  nfc1.SAMConfig();
+  
   nfc1.setPassiveActivationRetries(5);
+  nfc1.SAMConfig();
+//  nfc2.SAMConfig();
+//  nfc2.setPassiveActivationRetries(5);
 
-  nfc2.SAMConfig();
-  nfc2.setPassiveActivationRetries(5);
-
-  nfc3.SAMConfig();
-  nfc3.setPassiveActivationRetries(5);
+//  nfc3.SAMConfig();
+//  nfc3.setPassiveActivationRetries(5);
 
   // start the Ethernet connection and the server:
   Ethernet.begin(mac, ip);
@@ -147,19 +147,19 @@ void loop(void) {
   bool new_magnet_state1 = digitalRead(MAGNET_PIN1)==LOW;
   if(magnet_state1 != new_magnet_state1) {
     magnet_state1 = new_magnet_state1;
-    httpRequest();
+    httpRequest(1);
   }
 
   bool new_magnet_state2 = digitalRead(MAGNET_PIN2)==LOW;
   if(magnet_state2 != new_magnet_state2) {
     magnet_state2 = new_magnet_state2;
-    httpRequest();
+    httpRequest(2);
   }
 
   bool new_magnet_state3 = digitalRead(MAGNET_PIN3)==LOW;
   if(magnet_state3 != new_magnet_state3) {
     magnet_state3 = new_magnet_state3;
-    httpRequest();
+    httpRequest(3);
   }
 
   magnet_state1 = new_magnet_state1;
@@ -168,8 +168,9 @@ void loop(void) {
     
   // Wait for an NTAG203 card.  When one is found 'uid' will be populated with
   // the UID, and uidLength will indicate the size of the UUID (normally 7)
+  Serial.println("Loop1");
   success = nfc1.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid1, &uidLength1);
-
+  Serial.println("Loop2");
   if (success) {
     // Display some basic information about the card
     Serial.println("Found an ISO14443A card");
@@ -193,14 +194,14 @@ void loop(void) {
 
   // Wait for an NTAG203 card.  When one is found 'uid' will be populated with
   // the UID, and uidLength will indicate the size of the UUID (normally 7)
-  success = nfc2.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid2, &uidLength2);
+//  success = nfc2.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid2, &uidLength2);
   
   if (success) {
     // Display some basic information about the card
     Serial.println("Found an ISO14443A card");
     Serial.print("  UID Length: ");Serial.print(uidLength2, DEC);Serial.println(" bytes");
     Serial.print("  UID Value: ");
-    nfc2.PrintHex(uid2, uidLength2);
+//    nfc2.PrintHex(uid2, uidLength2);
     Serial.print("  UID Time: ");
     Serial.println(millis() - last_millis2);
     Serial.print("  Magnet: ");
@@ -218,7 +219,7 @@ void loop(void) {
 
   // Wait for an NTAG203 card.  When one is found 'uid' will be populated with
   // the UID, and uidLength will indicate the size of the UUID (normally 7)
-  success = nfc3.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid3, &uidLength3);
+//  success = nfc3.readPassivecTargetID(PN532_MIFARE_ISO14443A, uid3, &uidLength3);
 
   
   
@@ -227,7 +228,7 @@ void loop(void) {
     Serial.println("Found an ISO14443A card");
     Serial.print("  UID Length: ");Serial.print(uidLength3, DEC);Serial.println(" bytes");
     Serial.print("  UID Value: ");
-    nfc3.PrintHex(uid3, uidLength3);
+//    nfc3.PrintHex(uid3, uidLength3);
     Serial.print("  UID Time: ");
     Serial.println(millis() - last_millis3);
     Serial.print("  Magnet: ");
@@ -242,76 +243,11 @@ void loop(void) {
     
     Serial.flush();    
   }
-
-  // listen for incoming clients
-  EthernetClient client = server.available();
-  if (client) {
-    Serial.println("new client");
-    while (client.connected()) {
-      if (client.available()) {
-        while(client.available()) {
-          delay(3);  
-          string = client.readString();
-          Serial.println(string);
-        }
-        
-        // send a standard http response header
-
-        //client.println("POST /api/peripheral/update HTTP/1.1");
-        //client.println("Host: etr.looklisten.com");
-        client.println("HTTP/1.1 200 OK");
-        client.println("Content-Type: application/json");
-        client.println("Refresh: 1");
-        client.println("Cache-Control: no-cache");
-        
-        client.println();
-        client.println("{");
-        client.println("\"identifier\":\"nfc_1\",");
-        if(magnet_state1) {
-          client.println("\"State_1\":\"0\",");
-        } else {
-          client.println("\"State_1\":\"1\",");
-          client.print("\"Tag_1\":\"0x");
-          for(int i = 0; i < last_uidLength1; i++) {
-            client.print(last_uid1[i], HEX);
-          }
-          client.println("\",");
-        }
-        if(magnet_state2) {
-          client.println("\"State_2\":\"0\",");
-        } else {
-          client.println("\"State_2\":\"1\",");
-          client.print("\"Tag_2\":\"0x");
-          for(int i = 0; i < last_uidLength2; i++) {
-            client.print(last_uid2[i], HEX);
-          }
-          client.println("\",");
-        }
-        if(magnet_state3) {
-          client.println("\"State_3\":\"0\"");
-        } else {
-          client.println("\"State_3\":\"1\",");
-          client.print("\"Tag_3\":\"0x");
-          for(int i = 0; i < last_uidLength3; i++) {
-            client.print(last_uid3[i], HEX);
-          }
-          client.println("\"");
-        }
-        client.println("}");
-        break;
-      }
-    }
-    // give the web browser time to receive the data
-    delay(1);
-    // close the connection:
-    client.stop();
-    Serial.println("client disconnected");
-  }
 }
 
 
 // this method makes a HTTP connection to the server:
-void httpRequest() {
+void httpRequest(int card_number) {
   EthernetClient client;
   // close any connection before send a new request.
   // This will free the socket on the WiFi shield
@@ -329,36 +265,39 @@ void httpRequest() {
     
     client.println();
     client.println("{");
-    client.println("\"identifier\":\"nfc_1\",");
-    if(magnet_state1) {
-      client.println("\"State_1\":\"0\",");
-    } else {
-      client.println("\"State_1\":\"1\",");
-      client.print("\"Tag_1\":\"0x");
-      for(int i = 0; i < last_uidLength1; i++) {
-        client.print(last_uid1[i], HEX);
+    if(card_number == 1) {
+      client.println("\"identifier\":\"nfc_1\",");
+      if(magnet_state1) {
+        client.println("\"state\":\"\"");
+      } else {
+        client.println("\"state\":\"0x\"");
+        for(int i = 0; i < last_uidLength1; i++) {
+          client.print(last_uid1[i], HEX);
+        }
+        client.println("\"");
       }
-      client.println("\",");
-    }
-    if(magnet_state2) {
-      client.println("\"State_2\":\"0\",");
-    } else {
-      client.println("\"State_2\":\"1\",");
-      client.print("\"Tag_2\":\"0x");
-      for(int i = 0; i < last_uidLength2; i++) {
-        client.print(last_uid2[i], HEX);
+    } else if(card_number == 2) {
+    client.println("\"identifier\":\"nfc_2\",");
+      if(magnet_state2) {
+        client.println("\"state\":\"\"");
+      } else {
+        client.println("\"state\":\"0x\"");
+        for(int i = 0; i < last_uidLength2; i++) {
+          client.print(last_uid2[i], HEX);
+        }
+        client.println("\"");
       }
-      client.println("\",");
-    }
-    if(magnet_state3) {
-      client.println("\"State_3\":\"0\"");
-    } else {
-      client.println("\"State_3\":\"1\",");
-      client.print("\"Tag_3\":\"0x");
-      for(int i = 0; i < last_uidLength3; i++) {
-        client.print(last_uid3[i], HEX);
+    } else if(card_number == 3) {
+      client.println("\"identifier\":\"nfc_3\",");
+      if(magnet_state3) {
+        client.println("\"state\":\"\"");
+      } else {
+        client.println("\"state\":\"0x\"");
+        for(int i = 0; i < last_uidLength3; i++) {
+          client.print(last_uid3[i], HEX);
+        }
+        client.println("\"");
       }
-      client.println("\"");
     }
     client.println("}");
     client.println();

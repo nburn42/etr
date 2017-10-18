@@ -32,7 +32,7 @@
 byte mac[] = {
   0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xF1
 };
-IPAddress ip(192, 168, 1, 220);
+IPAddress ip(192, 168, 0, 220);
 
 // Initialize the Ethernet server library
 // with the IP address and port you want to use
@@ -84,10 +84,10 @@ void loop(void) {
           string = client.readString();
           Serial.println(string);
   
-          if(string.indexOf("192.168.1.220/open") != -1) {
+          if(string.indexOf("192.168.0.220/open") != -1) {
             is_open = true;
             //open_drawer();
-          } else if(string.indexOf("192.168.1.220/close") != -1) {
+          } else if(string.indexOf("192.168.0.220/close") != -1) {
             is_open = false;
             //close_drawer();
           }
