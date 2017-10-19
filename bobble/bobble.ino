@@ -64,7 +64,7 @@ EthernetServer server(80);
 IPAddress etr_server(192,168,1,200);
 
 // Or use this line for a breakout or shield with an I2C connection:
-Adafruit_PN532 nfc1(PN532_IRQ1, PN532_RESET1);
+Adafruit_PN532 nfc1(PN532_IRQ2, PN532_RESET2);
 //Adafruit_PN532 nfc2(PN532_IRQ2, PN532_RESET2);
 //Adafruit_PN532 nfc3(PN532_IRQ3, PN532_RESET3);
 

@@ -23,16 +23,16 @@
 #include <SPI.h>
 #include <Ethernet.h>
 
-#define CONTROL_PIN1 (7)
-#define CONTROL_PIN2 (8)
+#define DOOR_PIN (7)
+#define LIGHT_PIN (8)
 
 
 // Enter a MAC address and IP address for your controller below.
 // The IP address will be dependent on your local network:
 byte mac[] = {
-  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xF1
+  0xDE, 0xAD, 0xCE, 0xEF, 0xFE, 0xF1
 };
-IPAddress ip(192, 168, 0, 220);
+IPAddress ip(192, 168, 0, 221);
 
 // Initialize the Ethernet server library
 // with the IP address and port you want to use
@@ -40,14 +40,15 @@ IPAddress ip(192, 168, 0, 220);
 EthernetServer server(80);
 
 
-bool is_open = false;
+bool door_on = true;
+bool light_on = false;
 String string = String("");
 
 void setup(void) {
-  #ifndef ESP8266
-    long start_time = millis();
-    while (!Serial && millis() - start_time < 2000); // for Leonardo/Micro/Zero
-  #endif
+//  #ifndef ESP8266
+//    long start_time = millis();
+//    while (!Serial && millis() - start_time < 2000); // for Leonardo/Micro/Zero
+//  #endif
   //Serial.begin(115200);
   //Serial.println("Started");
 
@@ -57,18 +58,25 @@ void setup(void) {
   //Serial.print("server is at ");
   //Serial.println(Ethernet.localIP());
 
-  pinMode(CONTROL_PIN1, OUTPUT);
-  pinMode(CONTROL_PIN2, OUTPUT);
+  pinMode(DOOR_PIN, OUTPUT);
+  pinMode(LIGHT_PIN, OUTPUT);
 
-  close_drawer();
+  turn_door_on();
+  turn_light_off();
 
 }
 
 void loop(void) {
-  if(is_open) {
-    open_drawer();
+  if(door_on) {
+    turn_door_on();
   } else {
-    close_drawer();
+    turn_door_off();
+  }
+
+  if(light_on) {
+    turn_light_on();
+  } else {
+    turn_light_off();
   }
   
   delay(2);
@@ -76,23 +84,55 @@ void loop(void) {
   // listen for incoming clients
   EthernetClient client = server.available();
   if (client) {
+    client.setTimeout(20);
     //Serial.println("new client");
     while (client.connected()) {
       if (client.available()) {
+        // send a standard http response header
+        client.println("HTTP/1.1 200 OK");
+        client.println("Content-Type: application/json");
+        client.println("Cache-Control: no-cache");
+        client.println("Connection: close");
+        
+        client.println();
+        
         while(client.available()) {
           delay(3);  
+          //Serial.println("READ");
           string = client.readString();
           //Serial.println(string);
+
+          
+          
+
   
-          if(string.indexOf(" /drawer_open") != -1) {
-            is_open = true;
-            //open_drawer();
+          if(string.indexOf(" /door_on") != -1) {
+            door_on = true;
+            turn_door_on();
+            //Serial.print("door on");
+            client.println("door on");
             break;
-          } else if(string.indexOf(" /drawer_close") != -1) {
-            is_open = false;
-            //close_drawer();
+          } else if(string.indexOf(" /door_off") != -1) {
+            door_on = false;
+            turn_door_off();
+            //Serial.println("door off");
+            client.println("door off");
             break;
           }
+          if(string.indexOf(" /light_on") != -1) {
+            light_on = true;
+            turn_light_on();
+            //Serial.println("light on");
+            client.println("light on");
+            break;
+          } else if(string.indexOf(" /light_off") != -1) {
+            light_on = false;
+            turn_light_off();
+            //Serial.println("light off");
+            client.println("light off");
+            break;
+          }
+
           if(string.indexOf("keep-alive") != -1) {
             break;
           }
@@ -101,30 +141,13 @@ void loop(void) {
         while(client.available()) {
           client.read();
         }
-
-        //Serial.println(is_open);
-
-        // send a standard http response header
-        client.println("HTTP/1.1 200 OK");
-        client.println("Content-Type: application/json");
-        client.println("Cache-Control: no-cache");
-        
+        //Serial.println("success");  
+        client.println("success");
         client.println();
-        client.println("{");
-        client.println("\"identifier\":\"drawer\",");
-
-        if(is_open) {
-          client.println("\"status\":\"open\"");
-        } else {
-          client.println("\"status\":\"closed\"");
-        }
-        client.println("}");
         break;
       }
+     
     }
-
-   
-        
     // give the web browser time to receive the data
     delay(1);
     // close the connection:
@@ -133,20 +156,19 @@ void loop(void) {
   }
 }
 
-void open_drawer() {
-  digitalWrite(CONTROL_PIN1, LOW);
-  digitalWrite(CONTROL_PIN2, HIGH);
-//  delay(1);
-//  digitalWrite(CONTROL_PIN1, LOW);
-//  digitalWrite(CONTROL_PIN2, LOW);
+void turn_door_on() {
+  digitalWrite(DOOR_PIN, LOW);
+}
+void turn_door_off() {
+  digitalWrite(DOOR_PIN, HIGH);
 }
 
-void close_drawer() {
-  digitalWrite(CONTROL_PIN1, HIGH);
-  digitalWrite(CONTROL_PIN2, LOW);
-//  delay(2);
-//  digitalWrite(CONTROL_PIN1, LOW);
-//  digitalWrite(CONTROL_PIN2, LOW);
+void turn_light_on() {
+  digitalWrite(LIGHT_PIN, HIGH);
+}
+
+void turn_light_off() {
+  digitalWrite(LIGHT_PIN, LOW);
 }
 
 
