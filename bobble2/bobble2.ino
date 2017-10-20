@@ -33,7 +33,7 @@
 byte mac[] = {
   0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
 };
-IPAddress ip(192, 168, 0, 210);
+IPAddress ip(192, 168, 0, 211);
 
 #define MAGNET_PIN1 (4)
 
@@ -50,8 +50,6 @@ IPAddress etr_server(192,168,0,200);
 
 // Or use this line for a breakout or shield with an I2C connection:
 Adafruit_PN532 nfc1(PN532_IRQ1, PN532_RESET1);
-//Adafruit_PN532 nfc2(PN532_IRQ2, PN532_RESET2);
-//Adafruit_PN532 nfc3(PN532_IRQ3, PN532_RESET3);
 
 #if defined(ARDUINO_ARCH_SAMD)
 // for Zero, output on USB Serial console, remove line below if using programming port to program the Zero!

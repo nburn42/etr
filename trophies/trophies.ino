@@ -172,7 +172,7 @@ void httpRequest(bool use_magnet1) {
     client.println();
     Serial.println();
     
-    delay(500);
+    delay(10);
 
     while(client.available()) {
       delay(3);  
