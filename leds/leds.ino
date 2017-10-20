@@ -33,7 +33,7 @@ FASTLED_USING_NAMESPACE
 
 
 
-#define LED_PIN1 (7)
+#define LED_PIN1 (17)
 #define LED_PIN2 (8)
 
 #define LED_TYPE    WS2811
