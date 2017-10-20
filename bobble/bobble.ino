@@ -23,6 +23,23 @@
 #include <SPI.h>
 #include <Ethernet.h>
 #include <Adafruit_PN532.h>
+#include "FastLED.h"
+#if defined(FASTLED_VERSION) && (FASTLED_VERSION < 3001000)
+#warning "Requires FastLED 3.1 or later; check github for latest code."
+#endif
+
+
+FASTLED_USING_NAMESPACE
+
+#define LED_PIN1 (7)
+
+#define LED_TYPE    WS2811
+#define COLOR_ORDER GRB
+#define NUM_LEDS    512
+CRGB leds[NUM_LEDS];
+
+#define BRIGHTNESS         255
+#define FRAMES_PER_SECOND  1
 
 // If using the breakout or shield with I2C, define just the pins connected
 // to the IRQ and reset lines.  Use the values below (2, 3) for the shield!
@@ -50,14 +67,12 @@ IPAddress etr_server(192,168,0,200);
 
 // Or use this line for a breakout or shield with an I2C connection:
 Adafruit_PN532 nfc1(PN532_IRQ1, PN532_RESET1);
-//Adafruit_PN532 nfc2(PN532_IRQ2, PN532_RESET2);
-//Adafruit_PN532 nfc3(PN532_IRQ3, PN532_RESET3);
 
-#if defined(ARDUINO_ARCH_SAMD)
-// for Zero, output on USB Serial console, remove line below if using programming port to program the Zero!
-// also change #define in Adafruit_PN532.cpp library file
-   #define Serial SerialUSB
-#endif
+//#if defined(ARDUINO_ARCH_SAMD)
+//// for Zero, output on USB Serial console, remove line below if using programming port to program the Zero!
+//// also change #define in Adafruit_PN532.cpp library file
+//   #define Serial SerialUSB
+//#endif
 
 String string = String("");
 bool magnet_state1 = false;
@@ -74,9 +89,10 @@ void setup(void) {
   nfc1.begin();
 
   uint32_t versiondata = nfc1.getFirmwareVersion();
-  if (! versiondata) {
-    //Serial.print("Didn't find PN53x board1");
-    while (1); // halt
+  while (! versiondata) {
+    //Serial.println("Didn't find PN53x board1");
+    delay(500);
+    versiondata = nfc1.getFirmwareVersion();
   }
 
   // Got ok data, print it out!
@@ -86,7 +102,7 @@ void setup(void) {
   
   // configure board to read RFID tags
   
-  nfc1.setPassiveActivationRetries(2);
+  nfc1.setPassiveActivationRetries(10);
   nfc1.SAMConfig();
 
   // start the Ethernet connection and the server:
@@ -98,6 +114,12 @@ void setup(void) {
   pinMode(MAGNET_PIN1, INPUT);
   
   //Serial.println("Waiting for an ISO14443A Card ...");
+
+  // tell FastLED about the LED strip configuration
+  FastLED.addLeds<LED_TYPE,LED_PIN1,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
+
+  // set master brightness control
+  FastLED.setBrightness(BRIGHTNESS);
 }
 
 void loop(void) {
@@ -105,39 +127,95 @@ void loop(void) {
   uint8_t uid1[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
   uint8_t uidLength1;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type
 
-  bool new_magnet_state1 = digitalRead(MAGNET_PIN1)==LOW;
+  bool new_magnet_state1 = millis() - last_millis1 > 1000;//digitalRead(MAGNET_PIN1)==LOW;
   if(magnet_state1 != new_magnet_state1) {
     magnet_state1 = new_magnet_state1;
     httpRequest();
   }
 
   magnet_state1 = new_magnet_state1;
-  //Serial.println(magnet_state1);
+  ////Serial.println(magnet_state1);
     
   // Wait for an NTAG203 card.  When one is found 'uid' will be populated with
   // the UID, and uidLength will indicate the size of the UUID (normally 7)
-  //Serial.println("Loop1");
   success = nfc1.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid1, &uidLength1);
-  //Serial.println("Loop2");
+  
   if (success && uidLength1 == 7 || uidLength1 == 4) {
     // Display some basic information about the card
-    //Serial.println("Found an ISO14443A card");
-    //Serial.print("  UID Length: ");//Serial.print(uidLength1, DEC);//Serial.println(" bytes");
-    //Serial.print("  UID Value: ");
-    //nfc1.PrintHex(uid1, uidLength1);
-    //Serial.print("  UID Time: ");
-    //Serial.println(millis() - last_millis1);
-    //Serial.print("  Magnet: ");
-    //Serial.println(digitalRead(MAGNET_PIN1)==LOW);
-    //Serial.println("");
+//    //Serial.println("Found an ISO14443A card");
+//    //Serial.print("  UID Length: ");//Serial.print(uidLength1, DEC);//Serial.println(" bytes");
+//    //Serial.print("  UID Value: ");
+//    //nfc1.PrintHex(uid1, uidLength1);
+//    //Serial.print("  UID Time: ");
+//    //Serial.println(millis() - last_millis1);
+//    //Serial.print("  Magnet: ");
+//    //Serial.println(digitalRead(MAGNET_PIN1)==LOW);
+//    //Serial.println("");
 
     for(int i = 0; i < 7; i++) {
       last_uid1[i] = uid1[i];
     }
     last_uidLength1 = uidLength1;
     last_millis1 = millis();
-    
+
+//    for(int i = 0; i < last_uidLength1; i++) {
+//      //Serial.print(last_uid1[i], HEX);
+//    }
+//    //Serial.println();
+  
     //Serial.flush();    
+  }
+
+  // listen for incoming clients
+  EthernetClient client = server.available();
+  if (client) {
+    ////Serial.println("new client");
+    while (client.connected()) {
+      if (client.available()) {
+        while(client.available()) {
+          delay(3);  
+          string = client.readString();
+          ////Serial.println(string);
+  
+          if(string.indexOf(" /black") != -1) {
+            led_color(0,0,0);
+            break;
+          } else if(string.indexOf(" /red") != -1) {
+            led_color(0,255,255);
+            break;
+          } else if(string.indexOf(" /blue") != -1) {
+            led_color(240,255,255);
+            break;
+          }
+          if(string.indexOf("keep-alive") != -1) {
+            break;
+          }
+        }
+
+        while(client.available()) {
+          client.read();
+        }
+
+        ////Serial.println(is_open);
+
+        // send a standard http response header
+        client.println("HTTP/1.1 200 OK");
+        client.println("Content-Type: application/json");
+        client.println("Cache-Control: no-cache");
+        
+        client.println();
+        client.println("good");
+        break;
+      }
+    }
+
+   
+        
+    // give the web browser time to receive the data
+    delay(1);
+    // close the connection:
+    client.stop();
+    ////Serial.println("client disconnected");
   }
 }
 
@@ -157,35 +235,57 @@ void httpRequest() {
     client.println("Host: 192.168.0.200");
     client.println("Content-Type: application/json");
     client.println("cache-control: no-cache");
-    client.println("Content-Length: 300");
+    client.println("Content-Length: 200");
     
     client.println();
+    //Serial.println();
     client.println("{");
-    client.println("\"identifier\":\"nfc_1\",");
+    //Serial.println("{");
+    client.println("\t\"identifier\":\"nfc_1\",");
+    //Serial.println("\t\"identifier\":\"nfc_1\",");
     if(magnet_state1) {
-      client.println("\"state\":\"\"");
+      client.println("\t\"state\":\"\"");
+      //Serial.println("\t\"state\":\"\"");
     } else {
-      client.println("\"state\":\"0x\"");
+      client.print("\t\"state\":\"0x");
+      //Serial.print("\t\"state\":\"0x");
       for(int i = 0; i < last_uidLength1; i++) {
         client.print(last_uid1[i], HEX);
+        //Serial.print(last_uid1[i], HEX);
       }
       client.println("\"");
+      //Serial.println("\"");
     }
   
     client.println("}");
+    //Serial.println("}");
     client.println();
     
     delay(10);
 
-//    while(client.available()) {
-//      delay(3);  
-//      String string = client.readString();
-//      //Serial.println(string);
-//    }
+    while(client.available()) {
+      delay(3);  
+      String string = client.readString();
+      //Serial.println(string);
+    }
     
     client.stop();
   } else {
     //Serial.println("could not connect to server");
+  }
+
+//  delay(100);
+//  while(client.available()) {
+//    delay(3);  
+//    char string = client.read();
+//    //Serial.print(string);
+//  }
+}
+
+void led_color(int h, int s, int v) {
+  // let's set an led value
+  for(int i = 0; i < NUM_LEDS; i ++) {
+    leds[i] = CHSV(h,s,v);
   }
 }
 

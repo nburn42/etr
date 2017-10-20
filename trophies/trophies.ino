@@ -45,17 +45,17 @@ bool magnet_state1 = false;
 bool magnet_state2 = false;
 
 void setup(void) {
-  #ifndef ESP8266
-    while (!Serial); // for Leonardo/Micro/Zero
-  #endif
-  Serial.begin(115200);
-  Serial.println("Started");
+//  #ifndef ESP8266
+//    while (!Serial); // for Leonardo/Micro/Zero
+//  #endif
+  //Serial.begin(115200);
+  //Serial.println("Started");
 
   // start the Ethernet connection and the server:
   Ethernet.begin(mac, ip);
   server.begin();
-  Serial.print("server is at ");
-  Serial.println(Ethernet.localIP());
+  //Serial.print("server is at ");
+  //Serial.println(Ethernet.localIP());
 
   pinMode(MAGNET_PIN1, INPUT);
   pinMode(MAGNET_PIN2, INPUT);
@@ -88,7 +88,7 @@ void loop(void) {
   // listen for incoming clients
   EthernetClient client = server.available();
   if (client) {
-    Serial.println("new client");
+    //Serial.println("new client");
     while (client.connected()) {
       if (client.available()) {
         // send a standard http response header
@@ -120,7 +120,7 @@ void loop(void) {
     delay(1);
     // close the connection:
     client.stop();
-    Serial.println("client disconnected");
+    //Serial.println("client disconnected");
   }
 }
 
@@ -133,7 +133,7 @@ void httpRequest(bool use_magnet1) {
 
   // if there's a successful connection:
   if (client.connect(etr_server, 80)) {
-    Serial.println("connected...");
+    //Serial.println("connected...");
     // send the HTTP GET request:
     client.println("POST /api/peripheral/update HTTP/1.1");
     client.println("Host: 192.168.0.200");
@@ -142,50 +142,50 @@ void httpRequest(bool use_magnet1) {
     client.println("Content-Length: 172");
    
     client.println();
-    Serial.println();
+    //Serial.println();
     client.println("{");
-    Serial.println("{");
+    //Serial.println("{");
     
     if(use_magnet1) {
       client.println("\t\"identifier\":\"magnet_1\",");
-      Serial.println("\t\"identifier\":\"magnet_1\",");
+      //Serial.println("\t\"identifier\":\"magnet_1\",");
       if(magnet_state1) {
         client.println("\t\"state\":\"1\"");
-        Serial.println("\t\"state\":\"1\"");
+        //Serial.println("\t\"state\":\"1\"");
       } else {
         client.println("\t\"state\":\"0\"");
-        Serial.println("\t\"state\":\"0\"");
+        //Serial.println("\t\"state\":\"0\"");
       }
     } else {
       client.println("\t\"identifier\":\"magnet_2\",");
-      Serial.println("\t\"identifier\":\"magnet_2\",");
+      //Serial.println("\t\"identifier\":\"magnet_2\",");
       if(magnet_state2) {
         client.println("\t\"state\":\"1\"");
-        Serial.println("\t\"state\":\"1\"");
+        //Serial.println("\t\"state\":\"1\"");
       } else {
         client.println("\t\"state\":\"0\"");
-        Serial.println("\t\"state\":\"0\"");
+        //Serial.println("\t\"state\":\"0\"");
       }
     }
     client.println("}");
-    Serial.println("}");
+    //Serial.println("}");
     client.println();
-    Serial.println();
+    //Serial.println();
     
     delay(10);
 
     while(client.available()) {
       delay(3);  
       String string = client.readString();
-      Serial.println(string);
+      //Serial.println(string);
       
       
     }
-    Serial.println("end");
+    //Serial.println("end");
     
     client.stop();
   } else {
-    Serial.println("could not connect to server");
+    //Serial.println("could not connect to server");
   }
 }
 

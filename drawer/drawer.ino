@@ -44,10 +44,10 @@ bool is_open = false;
 String string = String("");
 
 void setup(void) {
-  #ifndef ESP8266
-    long start_time = millis();
-    while (!Serial && millis() - start_time < 2000); // for Leonardo/Micro/Zero
-  #endif
+//  #ifndef ESP8266
+//    long start_time = millis();
+//    while (!Serial && millis() - start_time < 2000); // for Leonardo/Micro/Zero
+//  #endif
   //Serial.begin(115200);
   //Serial.println("Started");
 
