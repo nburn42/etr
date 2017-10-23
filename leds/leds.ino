@@ -28,176 +28,296 @@
 #warning "Requires FastLED 3.1 or later; check github for latest code."
 #endif
 
-
 FASTLED_USING_NAMESPACE
 
+#define DATA_PIN (5)
 
-
-#define LED_PIN1 (17)
-#define LED_PIN2 (8)
-
-#define LED_TYPE    WS2811
-#define COLOR_ORDER GRB
-#define NUM_LEDS    512
+#define NUM_LEDS    150
 CRGB leds[NUM_LEDS];
 
-#define BRIGHTNESS         255
-#define FRAMES_PER_SECOND  10
+#define UPDATES_PER_SECOND 100
 
 
 // Enter a MAC address and IP address for your controller below.
 // The IP address will be dependent on your local network:
 byte mac[] = {
-  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xF0
+  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xF5
 };
-IPAddress ip(192, 168, 1, 178);
+IPAddress ip(192, 168, 0, 230);
 
 // Initialize the Ethernet server library
 // with the IP address and port you want to use
 // (port 80 is default for HTTP):
 EthernetServer server(80);
 
+String string = "";
+
+bool party = false;
+CRGB full_color = CRGB::Black;
+
+CRGBPalette16 currentPalette;
+TBlendType    currentBlending;
+
+extern CRGBPalette16 myRedWhiteBluePalette;
+extern const TProgmemPalette16 myRedWhiteBluePalette_p PROGMEM;
 
 void setup(void) {
-  #ifndef ESP8266
-    while (!Serial); // for Leonardo/Micro/Zero
-  #endif
-  Serial.begin(115200);
-  Serial.println("Started");
+
+  
+//  #ifndef ESP8266
+//    while (!Serial); // for Leonardo/Micro/Zero
+//  #endif
+  //Serial.begin(115200);
+  //Serial.println("Started");
 
   // start the Ethernet connection and the server:
   Ethernet.begin(mac, ip);
   server.begin();
-  Serial.print("server is at ");
-  Serial.println(Ethernet.localIP());
+  //Serial.print("server is at ");
+  //Serial.println(Ethernet.localIP());
 
   // tell FastLED about the LED strip configuration
-  FastLED.addLeds<LED_TYPE,LED_PIN1,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
+  FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
 
   // set master brightness control
-  FastLED.setBrightness(BRIGHTNESS);
+  FastLED.setBrightness(255);
 
+  currentPalette = RainbowColors_p;
+  currentBlending = LINEARBLEND;
+
+  led_color(CRGB::Black);
 }
 
-// List of patterns to cycle through.  Each is defined as a separate function below.
-typedef void (*SimplePatternList[])();
-SimplePatternList gPatterns = { rainbow, rainbowWithGlitter, confetti, sinelon, juggle, bpm };
 
-uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
-uint8_t gHue = 0; // rotating "base color" used by many of the patterns
 
 
 void loop(void) {
-  
-  // Call the current pattern function once, updating the 'leds' array
-  gPatterns[gCurrentPatternNumber]();
 
-  // send the 'leds' array out to the actual LED strip
-  FastLED.show();  
-  // insert a delay to keep the framerate modest
-  FastLED.delay(1000/FRAMES_PER_SECOND); 
-
-  // do some periodic updates
-  EVERY_N_MILLISECONDS( 20 ) { gHue++; } // slowly cycle the "base color" through the rainbow
-  EVERY_N_SECONDS( 10 ) { nextPattern(); } // change patterns periodically
-
-  delay(200);
-
+  if(party) {
+    ChangePalettePeriodically();
+    
+    static uint8_t startIndex = 0;
+    startIndex = startIndex + 1; /* motion speed */
+    
+    FillLEDsFromPaletteColors( startIndex);
+    
+    FastLED.show();
+    FastLED.delay(1000 / UPDATES_PER_SECOND);
+  } else {
+    led_color(full_color);
+  }
+    
   // listen for incoming clients
   EthernetClient client = server.available();
   if (client) {
-    Serial.println("new client");
-    // an http request ends with a blank line
-    boolean currentLineIsBlank = true;
+    //////Serial.println("new client");
     while (client.connected()) {
       if (client.available()) {
-        // send a standard http response header
+        while(client.available()) {
+          delay(3);  
+          string = client.readString();
+          //////Serial.println(string);
+  
+          if(string.indexOf(" /black") != -1) {
+            full_color = CRGB::Black;
+            party = false;
+            break;
+          } else if(string.indexOf(" /red") != -1) {
+            full_color = CRGB::Red;
+            party = false;
+            break;
+          } else if(string.indexOf(" /blue") != -1) {
+            full_color = CRGB::Blue;
+            party = false;
+            break;
+          } else if(string.indexOf(" /white") != -1) {
+            full_color = CRGB::White;
+            party = false;
+            break;
+          } else if(string.indexOf(" /party") != -1) {
+            party = true;
+            break;
+          }
+          if(string.indexOf("keep-alive") != -1) {
+            break;
+          }
+        }
 
-        //client.println("POST /api/peripheral/update HTTP/1.1");
-        //client.println("Host: etr.looklisten.com");
+        while(client.available()) {
+          client.read();
+        }
+
+        //////Serial.println(is_open);
+
+        // send a standard http response header
         client.println("HTTP/1.1 200 OK");
         client.println("Content-Type: application/json");
         client.println("Cache-Control: no-cache");
         
         client.println();
-        client.println("{");
-        client.println("\"identifier\":\"led\",");
-        client.println("}");
+        client.println("good");
         break;
       }
     }
+
+   
+        
     // give the web browser time to receive the data
     delay(1);
     // close the connection:
     client.stop();
-    Serial.println("client disconnected");
+    //////Serial.println("client disconnected");
   }
 }
 
 
-#define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
-
-void nextPattern()
-{
-  // add one to the current pattern number, and wrap around at the end
-  gCurrentPatternNumber = (gCurrentPatternNumber + 1) % ARRAY_SIZE( gPatterns);
+void led_color(CRGB color) {
+  // let's set an led value
+  for(int i = 0; i < NUM_LEDS; i ++) {
+    leds[i] = color;
+  }
+  FastLED.show();
 }
 
-void rainbow() 
-{
-  // FastLED's built-in rainbow generator
-  fill_rainbow( leds, NUM_LEDS, gHue, 7);
-}
-
-void rainbowWithGlitter() 
-{
-  // built-in FastLED rainbow, plus some random sparkly glitter
-  rainbow();
-  addGlitter(80);
-}
-
-void addGlitter( fract8 chanceOfGlitter) 
-{
-  if( random8() < chanceOfGlitter) {
-    leds[ random16(NUM_LEDS) ] += CRGB::White;
+void dot(CRGB color) {
+  for(int i = 0; i < NUM_LEDS; i++) {
+    // Turn the LED on, then pause
+    leds[i] = color;
+    FastLED.show();
+    delay(5);
+    // Now turn the LED off, then pause
+    leds[i] = CRGB::Black;
+    FastLED.show();
+    delay(5);
   }
 }
 
-void confetti() 
+void FillLEDsFromPaletteColors( uint8_t colorIndex)
 {
-  // random colored speckles that blink in and fade smoothly
-  fadeToBlackBy( leds, NUM_LEDS, 10);
-  int pos = random16(NUM_LEDS);
-  leds[pos] += CHSV( gHue + random8(64), 200, 255);
+    uint8_t brightness = 255;
+    
+    for( int i = 0; i < NUM_LEDS; i++) {
+        leds[i] = ColorFromPalette( currentPalette, colorIndex, brightness, currentBlending);
+        colorIndex += 3;
+    }
 }
 
-void sinelon()
+
+// There are several different palettes of colors demonstrated here.
+//
+// FastLED provides several 'preset' palettes: RainbowColors_p, RainbowStripeColors_p,
+// OceanColors_p, CloudColors_p, LavaColors_p, ForestColors_p, and PartyColors_p.
+//
+// Additionally, you can manually define your own color palettes, or you can write
+// code that creates color palettes on the fly.  All are shown here.
+
+void ChangePalettePeriodically()
 {
-  // a colored dot sweeping back and forth, with fading trails
-  fadeToBlackBy( leds, NUM_LEDS, 20);
-  int pos = beatsin16( 13, 0, NUM_LEDS-1 );
-  leds[pos] += CHSV( gHue, 255, 192);
+    uint8_t secondHand = (millis() / 1000) % 60;
+    static uint8_t lastSecond = 99;
+    
+    if( lastSecond != secondHand) {
+        lastSecond = secondHand;
+        if( secondHand ==  0)  { currentPalette = RainbowColors_p;         currentBlending = LINEARBLEND; }
+        if( secondHand == 10)  { currentPalette = RainbowStripeColors_p;   currentBlending = NOBLEND;  }
+        if( secondHand == 15)  { currentPalette = RainbowStripeColors_p;   currentBlending = LINEARBLEND; }
+        if( secondHand == 20)  { SetupPurpleAndGreenPalette();             currentBlending = LINEARBLEND; }
+        if( secondHand == 25)  { SetupTotallyRandomPalette();              currentBlending = LINEARBLEND; }
+        if( secondHand == 30)  { SetupBlackAndWhiteStripedPalette();       currentBlending = NOBLEND; }
+        if( secondHand == 35)  { SetupBlackAndWhiteStripedPalette();       currentBlending = LINEARBLEND; }
+        if( secondHand == 40)  { currentPalette = CloudColors_p;           currentBlending = LINEARBLEND; }
+        if( secondHand == 45)  { currentPalette = PartyColors_p;           currentBlending = LINEARBLEND; }
+        if( secondHand == 50)  { currentPalette = myRedWhiteBluePalette_p; currentBlending = NOBLEND;  }
+        if( secondHand == 55)  { currentPalette = myRedWhiteBluePalette_p; currentBlending = LINEARBLEND; }
+    }
 }
 
-void bpm()
+// This function fills the palette with totally random colors.
+void SetupTotallyRandomPalette()
 {
-  // colored stripes pulsing at a defined Beats-Per-Minute (BPM)
-  uint8_t BeatsPerMinute = 62;
-  CRGBPalette16 palette = PartyColors_p;
-  uint8_t beat = beatsin8( BeatsPerMinute, 64, 255);
-  for( int i = 0; i < NUM_LEDS; i++) { //9948
-    leds[i] = ColorFromPalette(palette, gHue+(i*2), beat-gHue+(i*10));
-  }
+    for( int i = 0; i < 16; i++) {
+        currentPalette[i] = CHSV( random8(), 255, random8());
+    }
 }
 
-void juggle() {
-  // eight colored dots, weaving in and out of sync with each other
-  fadeToBlackBy( leds, NUM_LEDS, 20);
-  byte dothue = 0;
-  for( int i = 0; i < 8; i++) {
-    leds[beatsin16( i+7, 0, NUM_LEDS-1 )] |= CHSV(dothue, 200, 255);
-    dothue += 32;
-  }
+// This function sets up a palette of black and white stripes,
+// using code.  Since the palette is effectively an array of
+// sixteen CRGB colors, the various fill_* functions can be used
+// to set them up.
+void SetupBlackAndWhiteStripedPalette()
+{
+    // 'black out' all 16 palette entries...
+    fill_solid( currentPalette, 16, CRGB::Black);
+    // and set every fourth one to white.
+    currentPalette[0] = CRGB::White;
+    currentPalette[4] = CRGB::White;
+    currentPalette[8] = CRGB::White;
+    currentPalette[12] = CRGB::White;
+    
 }
 
+// This function sets up a palette of purple and green stripes.
+void SetupPurpleAndGreenPalette()
+{
+    CRGB purple = CHSV( HUE_PURPLE, 255, 255);
+    CRGB green  = CHSV( HUE_GREEN, 255, 255);
+    CRGB black  = CRGB::Black;
+    
+    currentPalette = CRGBPalette16(
+                                   green,  green,  black,  black,
+                                   purple, purple, black,  black,
+                                   green,  green,  black,  black,
+                                   purple, purple, black,  black );
+}
+
+
+// This example shows how to set up a static color palette
+// which is stored in PROGMEM (flash), which is almost always more
+// plentiful than RAM.  A static PROGMEM palette like this
+// takes up 64 bytes of flash.
+const TProgmemPalette16 myRedWhiteBluePalette_p PROGMEM =
+{
+    CRGB::Red,
+    CRGB::Gray, // 'white' is too bright compared to red and blue
+    CRGB::Blue,
+    CRGB::Black,
+    
+    CRGB::Red,
+    CRGB::Gray,
+    CRGB::Blue,
+    CRGB::Black,
+    
+    CRGB::Red,
+    CRGB::Red,
+    CRGB::Gray,
+    CRGB::Gray,
+    CRGB::Blue,
+    CRGB::Blue,
+    CRGB::Black,
+    CRGB::Black
+};
+
+
+
+// Additionl notes on FastLED compact palettes:
+//
+// Normally, in computer graphics, the palette (or "color lookup table")
+// has 256 entries, each containing a specific 24-bit RGB color.  You can then
+// index into the color palette using a simple 8-bit (one byte) value.
+// A 256-entry color palette takes up 768 bytes of RAM, which on Arduino
+// is quite possibly "too many" bytes.
+//
+// FastLED does offer traditional 256-element palettes, for setups that
+// can afford the 768-byte cost in RAM.
+//
+// However, FastLED also offers a compact alternative.  FastLED offers
+// palettes that store 16 distinct entries, but can be accessed AS IF
+// they actually have 256 entries; this is accomplished by interpolating
+// between the 16 explicit entries to create fifteen intermediate palette
+// entries between each pair.
+//
+// So for example, if you set the first two explicit entries of a compact 
+// palette to Green (0,255,0) and Blue (0,0,255), and then retrieved 
+// the first sixteen entries from the virtual palette (of 256), you'd get
+// Green, followed by a smooth gradient from green-to-blue, and then Blue.
 

@@ -133,7 +133,7 @@ void loop(void) {
   }
 }
 
-void open_drawer() {
+void close_drawer() {
   digitalWrite(CONTROL_PIN1, LOW);
   digitalWrite(CONTROL_PIN2, LOW);
 //  delay(1);
@@ -141,7 +141,7 @@ void open_drawer() {
 //  digitalWrite(CONTROL_PIN2, LOW);
 }
 
-void close_drawer() {
+void open_drawer() {
   digitalWrite(CONTROL_PIN1, HIGH);
   digitalWrite(CONTROL_PIN2, LOW);
 //  delay(2);
